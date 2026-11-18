@@ -1,0 +1,176 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function taskDoc(taskId) { return get(/databases/$(database)/documents/tasks/$(taskId)); }
+    function myProfile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    // Admins are the accounts that have a document in /admins (created by hand in the console).
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+
+    // ---- Profiles: public read (names/badges are shown on tasks), owner-only write.
+    // `verified` can only be true when Firebase Auth says the email is verified,
+    // so a user can't just flip their own badge.
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if signedIn() && request.auth.uid == userId
+                    && request.resource.data.mode in ['customer', 'helper']
+                    && request.resource.data.get('verified', false) == false
+                    && request.resource.data.get('trusted', false) == false;
+      allow update: if signedIn() && (
+                      // the owner edits their own profile, but can never grant themselves `trusted`
+                      ( request.auth.uid == userId
+                        && request.resource.data.mode in ['customer', 'helper']
+                        && (request.resource.data.get('verified', false) == false
+                            || request.auth.token.email_verified == true)
+                        && request.resource.data.get('trusted', false) == resource.data.get('trusted', false) )
+                      // an admin may only flip `trusted`
+                      || ( isAdmin()
+                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trusted']) )
+                    );
+      allow delete: if false;
+    }
+
+    // ---- Tasks: public read. Customer controls hiring/cancel/complete;
+    // the hired helper may only start the work. Every transition is checked here.
+    match /tasks/{taskId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+                    && request.resource.data.customerId == request.auth.uid
+                    && request.resource.data.status == 'open'
+                    && request.resource.data.helperId == null
+                    && request.resource.data.budget is number
+                    && request.resource.data.budget > 0;
+
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'helperId', 'helperName'])
+        && (
+          // customer actions
+          ( resource.data.customerId == request.auth.uid && (
+              // hire: only someone who actually applied, never yourself
+              ( resource.data.status == 'open'
+                && request.resource.data.status == 'assigned'
+                && request.resource.data.helperId != request.auth.uid
+                && exists(/databases/$(database)/documents/applications/$(taskId + '_' + request.resource.data.helperId)) )
+              || ( resource.data.status == 'open' && request.resource.data.status == 'cancelled'
+                   && request.resource.data.helperId == resource.data.helperId )
+              || ( resource.data.status == 'assigned' && request.resource.data.status == 'in-progress'
+                   && request.resource.data.helperId == resource.data.helperId )
+              || ( resource.data.status == 'in-progress' && request.resource.data.status == 'completed'
+                   && request.resource.data.helperId == resource.data.helperId )
+          ))
+          // hired helper starts the work
+          || ( resource.data.helperId == request.auth.uid
+               && resource.data.status == 'assigned'
+               && request.resource.data.status == 'in-progress'
+               && request.resource.data.helperId == resource.data.helperId )
+        );
+
+      // The owner may delete a task only while it is still open. (The page only offers this
+      // when nobody has applied; rules cannot count applications, so that check lives in the UI.)
+      allow delete: if signedIn() && resource.data.customerId == request.auth.uid
+                    && resource.data.status == 'open';
+    }
+
+    // ---- Applications: one per helper per task (id = taskId_helperId).
+    // Only the applicant and the task's owner can read it.
+    match /applications/{appId} {
+      allow read: if signedIn()
+                  && (resource.data.helperId == request.auth.uid
+                      || resource.data.customerId == request.auth.uid);
+      allow create: if signedIn()
+                    && appId == request.resource.data.taskId + '_' + request.auth.uid
+                    && request.resource.data.helperId == request.auth.uid
+                    && request.resource.data.customerId != request.auth.uid
+                    && taskDoc(request.resource.data.taskId).data.customerId == request.resource.data.customerId
+                    && taskDoc(request.resource.data.taskId).data.status == 'open';
+      allow update, delete: if false;
+    }
+
+    // ---- Reviews: public read. One per task (id = taskId), written by the
+    // task's customer, only after completion, about the helper who did it.
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if signedIn()
+                    && reviewId == request.resource.data.taskId
+                    && request.resource.data.customerId == request.auth.uid
+                    && request.resource.data.rating is int
+                    && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+                    && taskDoc(reviewId).data.customerId == request.auth.uid
+                    && taskDoc(reviewId).data.status == 'completed'
+                    && taskDoc(reviewId).data.helperId == request.resource.data.helperId;
+      allow update, delete: if false;
+    }
+
+    // ---- In-app notifications: only the recipient can read or mark as read.
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.toUid == request.auth.uid;
+      allow create: if signedIn()
+                    && request.resource.data.fromUid == request.auth.uid
+                    && request.resource.data.toUid != request.auth.uid
+                    && request.resource.data.read == false;
+      allow update: if signedIn() && resource.data.toUid == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if false;
+    }
+
+    // ---- Trusted-badge requests. Phone numbers live here (NOT on the public profile).
+    // Readable only by the requester and admins.
+    match /trustRequests/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'phone', 'proof', 'status', 'createdAt'])
+                    && request.resource.data.uid == uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.phone is string
+                    && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 15
+                    && request.resource.data.proof is string
+                    && request.resource.data.proof.size() >= 20 && request.resource.data.proof.size() <= 1000;
+      allow update: if signedIn() && (
+                      // requester can (re)submit unless already approved
+                      ( request.auth.uid == uid
+                        && resource.data.status != 'approved'
+                        && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'phone', 'proof', 'status', 'createdAt'])
+                        && request.resource.data.uid == uid
+                        && request.resource.data.status == 'pending'
+                        && request.resource.data.phone is string
+                        && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 15
+                        && request.resource.data.proof is string
+                        && request.resource.data.proof.size() >= 20 && request.resource.data.proof.size() <= 1000 )
+                      // admin decides
+                      || ( isAdmin()
+                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'reviewedAt'])
+                           && request.resource.data.status in ['approved', 'rejected'] )
+                    );
+      allow delete: if false;
+    }
+
+    // ---- Community vouches (id = voucherUid_helperUid, so one vouch per person).
+    // Either the voucher is a verified member, or they are the customer of a
+    // completed task done by that helper.
+    match /vouches/{vouchId} {
+      allow read: if true;
+      allow create: if signedIn()
+                    && vouchId == request.auth.uid + '_' + request.resource.data.helperUid
+                    && request.resource.data.voucherUid == request.auth.uid
+                    && request.resource.data.helperUid != request.auth.uid
+                    && (
+                      ( request.resource.data.type == 'verified'
+                        && myProfile().get('verified', false) == true )
+                      || ( request.resource.data.type == 'worked'
+                           && taskDoc(request.resource.data.taskId).data.customerId == request.auth.uid
+                           && taskDoc(request.resource.data.taskId).data.helperId == request.resource.data.helperUid
+                           && taskDoc(request.resource.data.taskId).data.status == 'completed' )
+                    );
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.voucherUid == request.auth.uid;
+    }
+
+    // ---- Admin list: an account can only check whether it is itself an admin.
+    match /admins/{adminId} {
+      allow read: if signedIn() && request.auth.uid == adminId;
+      allow write: if false;
+    }
+  }
+}

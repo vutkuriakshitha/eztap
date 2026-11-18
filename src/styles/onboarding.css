@@ -1,0 +1,67 @@
+/* First-login welcome tour */
+.ob-backdrop{position:fixed;inset:0;z-index:300;background:rgba(10,11,46,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:1rem;animation:ob-fade .25s ease both}
+.ob-dialog{position:relative;width:100%;max-width:640px;max-height:calc(100vh - 2rem);overflow:auto;background:#fff;color:var(--ink);border:2px solid var(--ink);border-radius:28px;box-shadow:10px 10px 0 var(--marigold);padding:2.2rem 2.2rem 1.6rem;outline:none;animation:ob-rise .45s cubic-bezier(.2,.8,.2,1) both}
+.ob-skip{position:absolute;top:1rem;right:1.2rem;background:none;color:var(--text2);font-weight:600;font-size:.85rem}
+.ob-skip:hover{color:var(--primary);text-decoration:underline}
+.ob-body{padding-top:1.1rem;min-height:340px;animation:ob-swap .4s cubic-bezier(.2,.8,.2,1) both}
+.ob-body h2{font-size:clamp(1.8rem,5vw,2.5rem);line-height:1.02;letter-spacing:-.03em;font-weight:800;margin:.4rem 0 .9rem;text-wrap:balance}
+.ob-text{color:var(--text2);font-size:1.02rem;max-width:52ch}
+
+/* step 1: post -> applicants -> done, drawn in sequence */
+.ob-art-flow{display:flex;align-items:center;justify-content:space-between;gap:.4rem;margin:1.4rem 0 1.6rem;padding:1.2rem 1rem;background:var(--bg);border-radius:20px}
+.ob-node{display:flex;flex-direction:column;align-items:center;gap:.4rem;font-weight:700;font-size:.82rem;opacity:0;transform:scale(.6);animation:ob-pop .5s cubic-bezier(.2,.8,.2,1) forwards}
+.ob-node span{width:58px;height:58px;border-radius:50%;background:#fff;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+.ob-n1{animation-delay:.25s}.ob-n2{animation-delay:1s}.ob-n3{animation-delay:1.75s}
+.ob-n3 span{background:var(--marigold)}
+.ob-line{flex:1;height:3px;border-radius:3px;background:var(--primary);transform:scaleX(0);transform-origin:left;animation:ob-draw .5s ease forwards;margin-bottom:1.4rem}
+.ob-l1{animation-delay:.6s}.ob-l2{animation-delay:1.35s}
+
+/* step 2: choose side */
+.ob-choices{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin-top:1.4rem}
+.ob-choice{text-align:left;padding:1.2rem;border:2px solid var(--border);border-radius:20px;background:#fff;transition:transform .2s,border-color .2s,box-shadow .2s;display:flex;flex-direction:column;gap:.4rem}
+.ob-choice b{font:800 1.2rem 'Bricolage Grotesque',sans-serif}
+.ob-choice span{color:var(--text2);font-size:.9rem}
+.ob-choice:hover{border-color:var(--ink);transform:translateY(-2px)}
+.ob-choice.on{border-color:var(--ink);background:#FFF6DF;box-shadow:5px 5px 0 var(--marigold)}
+
+/* step 3: numbered steps, one after another */
+.ob-steps{list-style:none;display:flex;flex-direction:column;gap:1.1rem;margin-top:1.3rem}
+.ob-steps li{display:flex;gap:1rem;opacity:0;transform:translateX(-14px);animation:ob-slide .45s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(var(--i) * .22s + .1s)}
+.ob-steps p{color:var(--text2);margin-top:.15rem}
+.ob-num{width:36px;height:36px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0}
+
+/* step 4: badges pop in */
+.ob-badges{list-style:none;display:flex;flex-direction:column;gap:.9rem;margin-top:1.3rem}
+.ob-badges li{display:flex;align-items:center;gap:1rem;padding:.8rem 1rem;border:1.5px solid var(--border);border-radius:16px;opacity:0;transform:scale(.94);animation:ob-pop .45s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(var(--i) * .25s + .1s)}
+.ob-badges .badge{flex-shrink:0;font-size:.82rem;padding:.35rem .7rem}
+.ob-badges p{color:var(--text2);font-size:.92rem}
+
+.ob-foot{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:1.4rem;padding-top:1.2rem;border-top:1px solid var(--border);flex-wrap:wrap}
+.ob-dots{display:flex;gap:.45rem}
+.ob-dots i{width:9px;height:9px;border-radius:50%;background:#D5D8F0;transition:all .25s}
+.ob-dots i.done{background:var(--primary)}
+.ob-dots i.on{width:26px;border-radius:9px;background:var(--ink)}
+.ob-actions{display:flex;gap:.6rem}
+
+@keyframes ob-fade{from{opacity:0}}
+@keyframes ob-rise{from{opacity:0;transform:translateY(24px) scale(.97)}}
+@keyframes ob-swap{from{opacity:0;transform:translateX(18px)}}
+@keyframes ob-pop{to{opacity:1;transform:none}}
+@keyframes ob-slide{to{opacity:1;transform:none}}
+@keyframes ob-draw{to{transform:scaleX(1)}}
+
+/* dashboard checklist */
+.gs-card{background:#fff;border:2px solid var(--ink);border-radius:22px;padding:1.4rem 1.6rem;margin-bottom:1.6rem;box-shadow:6px 6px 0 var(--marigold)}
+.gs-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:.9rem}
+.gs-head h3{font-size:1.25rem}
+.gs-head span{font-size:.85rem;color:var(--text2)}
+.gs-bar{height:7px;background:#ECEEF8;border-radius:99px;overflow:hidden;margin-bottom:1rem}
+.gs-bar i{display:block;height:100%;background:var(--primary);border-radius:99px;transition:width .5s}
+.gs-list{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+.gs-list a,.gs-list div{display:flex;align-items:center;gap:.8rem;padding:.65rem .8rem;border-radius:12px;font-weight:600}
+.gs-list a:hover{background:var(--primary-light)}
+.gs-tick{width:24px;height:24px;border-radius:50%;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0}
+.gs-done .gs-tick{background:var(--mint);border-color:#0B7A55;color:#05402C}
+.gs-done{color:var(--text2);text-decoration:line-through}
+.gs-go{margin-left:auto;color:var(--primary);font-size:.85rem}
+@media(max-width:560px){.ob-dialog{padding:1.6rem 1.2rem 1.2rem;border-radius:22px}.ob-choices{grid-template-columns:1fr}.ob-body{min-height:0}.ob-badges li{flex-direction:column;align-items:flex-start;gap:.4rem}}
