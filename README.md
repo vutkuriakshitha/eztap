@@ -66,7 +66,5 @@ This publishes the site, the security rules and the indexes. `deploy.bat` runs t
 ## Not built yet
 
 - Real payments (Razorpay/Stripe integration)
-- Live helper location
-- Government ID / KYC verification
-- Push and SMS notifications
-- Automated tests
+- Government ID / KYC verification (Requires paid subscription)
+
